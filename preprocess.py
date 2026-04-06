@@ -345,7 +345,7 @@ def preprocess(merged_path, year, col, output_folder=".", provinsi_filter=None, 
 
         # Status pekerjaan
         if c_stat in chunk.columns:
-            status_map = {1: 'h_stat1', 2: 'h_stat2', 3: 'h_stat2', 4: 'h_stat3', 5: 'h_stat4', 6: 'h_stat5', 7: 'h_stat6'}
+            status_map = {1: 'h_stat1', 2: 'h_stat2', 3: 'h_stat2', 4: 'h_stat3', 5: 'h_stat4', 6: 'h_stat5'}
             chunk['work_status'] = pd.to_numeric(chunk[c_stat], errors='coerce').map(status_map)
 
         # Jumlah ART
@@ -357,7 +357,7 @@ def preprocess(merged_path, year, col, output_folder=".", provinsi_filter=None, 
 
         wide_configs = [
             ('ijazah', EDU_LIST), ('school', SCHOOL_LIST),
-            ('marriage', None), ('gender', None), ('age_cat', None), ('work_status', None), ('school_cat', None), ('work_status', SEC_LIST)
+            ('marriage', None), ('gender', None), ('age_cat', None), ('work_status', SEC_LIST)
         ]
         for col_name, cats in wide_configs:
             if col_name in chunk.columns:
