@@ -17,7 +17,13 @@ try:
 except ImportError:
     PARQUET_AVAILABLE = False
 
-csv.field_size_limit(sys.maxsize)
+max_int = sys.maxsize
+while True:
+    try:
+        csv.field_size_limit(max_int)
+        break
+    except OverflowError:
+        max_int = int(max_int / 10)
 
 
 COLUMN_MAPPING = {
@@ -95,7 +101,7 @@ def load_file(path):
         df = pd.read_parquet(path)
     else:
         sep = detect_separator(path)
-        df = pd.read_csv(path, sep=sep, engine='python', dtype=str, on_bad_lines='skip', low_memory=False)
+        df = pd.read_csv(path, sep=sep, dtype=str, on_bad_lines='skip', low_memory=False)
     df = normalize_columns(df)
     return df
 
@@ -110,7 +116,7 @@ def load_file_chunked(path, chunksize=50000):
             yield batch.to_pandas()
     else:
         sep = detect_separator(path)
-        reader = pd.read_csv(path, sep=sep, engine='python', dtype=str, chunksize=chunksize, on_bad_lines='skip', low_memory=False)
+        reader = pd.read_csv(path, sep=sep, dtype=str, chunksize=chunksize, on_bad_lines='skip', low_memory=False)
         for chunk in reader:
             yield chunk
 
