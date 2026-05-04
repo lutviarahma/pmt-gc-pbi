@@ -1,39 +1,31 @@
 # PMT Susenas - Preprocessing & Modelling
 
-Pipeline preprocessing dan modelling untuk data Susenas PMT, disesuaikan dengan Kuesioner Sensus Ekonomi (SE) 2026.
-
----
+Pipeline preprocessing dan modelling untuk data Susenas PMT (disesuaikan dgn kuesioner Sensus Ekonomi 2026).
 
 ## File
 
-| File | Fungsi |
-|------|--------|
-| `preprocess.py` | Pipeline preprocessing lengkap (load dataset sampai output `susenas_clean_{year}.csv`) |
-| `modelling.py` | Pipeline modelling XGBoost, input dari hasil `preprocess.py` |
-| `run_preprocess.py` | Interface terpusat — tinggal lempar data + tahun, otomatis diarahkan ke pipeline yang sesuai |
-
----
+- `preprocess.py` - pipeline preprocessing (load -> output `susenas_clean_{year}.csv`)
+- `modelling.py` - pipeline modelling XGBoost, input dari hasil preprocess
+- `run_preprocess.py` - interface terpusat, tinggal lempar data + tahun
 
 ## Alur Data
 
 ```
 Skenario 1 (KOR + KP terpisah):
-KOR + KP -> join -> raw_ruta + individu -> merge -> preprocessing -> susenas_clean_{year}.csv
+KOR + KP -> join -> raw_ruta + individu -> merge -> prepo -> susenas_clean_{year}.csv
 
 Skenario 2 (ruta + individu terpisah):
-raw_ruta + individu -> merge -> preprocessing -> susenas_clean_{year}.csv
+raw_ruta + individu -> merge -> prepo -> susenas_clean_{year}.csv
 
 Skenario 3 (sudah merged):
-data_merged -> preprocessing -> susenas_clean_{year}.csv
+data_merged -> prepo -> susenas_clean_{year}.csv
 ```
-
----
 
 ## run_preprocess.py
 
-Interface terpusat. User tinggal tentukan skenario, masukkan file dan tahun.
+User tinggal pilih skenario, masukin file dan tahun.
 
-**Skenario 3 — data sudah merged (2023, 2024):**
+Skenario 3, data sudah merged (2023, 2024):
 ```bash
 python run_preprocess.py merged \
   --tahun 2023 2024 \
@@ -41,7 +33,7 @@ python run_preprocess.py merged \
   --output ./hasil
 ```
 
-**Skenario 1 — KOR + KP terpisah, ada data individu (2025):**
+Skenario 1, KOR + KP terpisah, ada data individu (2025):
 ```bash
 python run_preprocess.py kor \
   --tahun 2025 \
@@ -51,7 +43,7 @@ python run_preprocess.py kor \
   --output ./hasil
 ```
 
-**Skenario 1 — KOR + KP terpisah, tanpa individu:**
+Skenario 1, KOR + KP terpisah tanpa individu:
 ```bash
 python run_preprocess.py kor \
   --tahun 2025 \
@@ -60,7 +52,7 @@ python run_preprocess.py kor \
   --output ./hasil
 ```
 
-**Skenario 2 — ruta + individu terpisah (2022):**
+Skenario 2, ruta + individu terpisah (2022):
 ```bash
 python run_preprocess.py ruta \
   --tahun 2022 \
@@ -69,14 +61,14 @@ python run_preprocess.py ruta \
   --output ./hasil
 ```
 
-**Beberapa tahun sekaligus:**
+Beberapa tahun sekaligus (cuma di subcommand `merged`):
 ```bash
 python run_preprocess.py merged \
   --tahun 2023 2024 \
   --file 23_susenas_kor.csv 24_susenas_kor.csv
 ```
 
-**Custom mapping kolom untuk tahun baru:**
+Custom mapping kolom utk tahun baru:
 ```bash
 python run_preprocess.py merged \
   --tahun 2026 \
@@ -84,19 +76,17 @@ python run_preprocess.py merged \
   --map c_prov=PROP c_kab=KAB c_sch=R700 c_ijz=R614
 ```
 
----
-
 ## preprocess.py
 
-Bisa juga dijalankan langsung per tahun dengan kontrol lebih detail.
+Bisa juga dijalankan langsung per tahun.
 
-**Skenario 3 — langsung ke preprocessing:**
+Skenario 3, langsung ke preprocessing:
 ```bash
 python preprocess.py --tahun 2023 --merged 23_susenas_kor.csv
 python preprocess.py --tahun 2024 --merged 24_susenas_kor.csv
 ```
 
-**Skenario 1 — KOR + KP terpisah + individu:**
+Skenario 1, KOR + KP + individu:
 ```bash
 python preprocess.py --tahun 2025 \
   --kor 25_susenas_individu.csv \
@@ -104,36 +94,31 @@ python preprocess.py --tahun 2025 \
   --individu 25_ind.csv
 ```
 
-**Skenario 2 — ruta + individu terpisah:**
+Skenario 2, ruta + individu:
 ```bash
 python preprocess.py --tahun 2022 \
   --ruta 22_ruta.csv \
   --individu 22_ind.parquet
 ```
 
-**Filter provinsi + custom chunk size:**
+Filter provinsi + custom chunk size:
 ```bash
 python preprocess.py --tahun 2025 --merged data.csv --provinsi 34 31 --chunk 50000
 ```
 
-**Custom mapping kolom:**
+Custom mapping kolom:
 ```bash
 python preprocess.py --tahun 2026 --merged data.csv \
   --map c_prov=PROP c_kab=KAB c_sch=R700 c_ijz=R614 c_stat=R706
 ```
 
-**Output:**
-```
-susenas_clean_{year}.csv
-```
-
----
+Output: `susenas_clean_{year}.csv`
 
 ## modelling.py
 
-Input dari hasil `preprocess.py`. Loop per provinsi otomatis, provinsi di-detect dari data jika tidak diisi.
+Input dari hasil `preprocess.py`. Loop per provinsi & per kabupaten otomatis. Train XGBoost pakai semua tahun yg dilempar, test di tahun yg dipilih (`--year_test`).
 
-**Semua provinsi:**
+Semua provinsi:
 ```bash
 python modelling.py \
   --data 2022:susenas_clean_2022.csv 2023:susenas_clean_2023.csv 2024:susenas_clean_2024.csv \
@@ -141,7 +126,7 @@ python modelling.py \
   --output ./output
 ```
 
-**Filter provinsi tertentu:**
+Filter provinsi tertentu:
 ```bash
 python modelling.py \
   --data 2022:susenas_clean_2022.csv 2023:susenas_clean_2023.csv 2024:susenas_clean_2024.csv \
@@ -150,20 +135,16 @@ python modelling.py \
   --output ./output
 ```
 
-**Output:**
-```
-output/report_modelling_{year_test}.csv
-```
-
----
+Output:
+- `output/report_modelling_{year_test}.csv` - laporan metrik per kabupaten
+- `output/master_testing_{year_test}.csv` - hasil prediksi gabungan
+- `output/models/xgb_{kab}.pkl` - model per kabupaten (pakai `--no_save_models` kalau ga mau disimpan)
 
 ## Format Input
 
-- File CSV dan Parquet didukung, otomatis terdeteksi
-- Separator CSV otomatis terdeteksi (`,` / `;` / `|`)
-- Nama kolom otomatis dinormalisasi (uppercase, karakter aneh dihapus)
-
----
+- CSV & Parquet, auto-detect dari ekstensi
+- Separator CSV auto-detect (`,` / `;` / `|`)
+- Nama kolom otomatis dinormalisasi (uppercase, karakter non-alphanumeric dihapus)
 
 ## Mapping Kolom per Tahun
 
@@ -176,4 +157,12 @@ output/report_modelling_{year_test}.csv
 | `c_roof` | R1806 | R1806 | R1806A | R1606 |
 | `asset_prefix` | R2001 | R2001 | R2001 | R1801 |
 
-Untuk tahun baru yang belum ada di mapping, gunakan `--map` untuk override kolom yang berbeda saja. Kolom yang tidak di-override akan diambil dari tahun terdekat jika ada, atau wajib diisi semua jika tahunnya benar-benar baru.
+Tabel di atas cuma sebagian (yg paling beda antar tahun). Mapping lengkap ada di `COLUMN_MAPPING` dlm `preprocess.py`.
+
+Buat tahun baru yg belum ada di `COLUMN_MAPPING`, semua key wajib diisi pakai `--map` (kalo cuma sebagian, bakal error karena key yg lain ga ketemu).
+
+## Catatan Modelling
+
+- Predictor list ada di `PREDICTORS` dlm `modelling.py` (69 fitur)
+- Pemekaran wilayah: kode kabupaten 2022 yg kena pemekaran (Riau 1472, Papua) otomatis di-remap ke kode baru lewat `KODE_MAP`
+- Filter `--provinsi 94` otomatis ekspansi ke 95/96/97 (Papua mekar), `91` ekspansi ke 91/92 (Papua Barat mekar) - liat `PROV_EXPAND`
