@@ -11,140 +11,112 @@ from preprocess import (
 )
 
 
-def run_pipeline(tahun, mode, files, output, provinsi, chunk, custom_map):
-    col = get_column_mapping(tahun, custom_map)
+def _banner(year):
+    print(f"\n{'=' * 50}\nTAHUN {year}\n{'=' * 50}")
+
+
+def cmd_merged(args):
+    if len(args.tahun) != len(args.file):
+        print("[ERROR] Jumlah --tahun dan --file harus sama.")
+        sys.exit(1)
+    custom_map = parse_custom_map(args.map) if args.map else None
+
+    for y, f in zip(args.tahun, args.file):
+        col = get_column_mapping(y, custom_map)
+        if col is None:
+            print(f"[SKIP] Tahun {y} tidak ada mapping.")
+            continue
+        _banner(y)
+        if not os.path.exists(f):
+            print(f"[ERROR] File tidak ditemukan: {f}")
+            continue
+        preprocess(f, y, col, args.output, args.provinsi, args.chunk)
+
+
+def cmd_kor(args):
+    custom_map = parse_custom_map(args.map) if args.map else None
+    col = get_column_mapping(args.tahun, custom_map)
     if col is None:
-        print(f"[ERROR] Tahun {tahun} tidak ada di mapping. Gunakan --map untuk custom mapping.")
-        return
+        sys.exit(1)
+    _banner(args.tahun)
 
-    print(f"\n{'='*50}")
-    print(f"TAHUN {tahun} | SKENARIO: {mode.upper()}")
-    print(f"{'='*50}")
-
-    if mode == 'merged':
-        preprocess(files['merged'], tahun, col, output, provinsi, chunk)
-
-    elif mode == 'kor':
-        raw_ruta_path = join_kor_kp(files['kor'], files['kp'], output_folder=output)
-        if not raw_ruta_path:
-            return
-        if files.get('individu'):
-            merged_path = merge_ruta_individu(
-                ruta_path=raw_ruta_path,
-                individu_path=files['individu'],
-                output_folder=output,
-                year=tahun
-            )
-            if not merged_path:
-                return
-        else:
-            merged_path = raw_ruta_path
-        preprocess(merged_path, tahun, col, output, provinsi, chunk)
-
-    elif mode == 'ruta':
-        merged_path = merge_ruta_individu(
-            ruta_path=files['ruta'],
-            individu_path=files['individu'],
-            output_folder=output,
-            year=tahun
-        )
+    raw_ruta_path = join_kor_kp(args.kor, args.kp, args.output, year=args.tahun)
+    if not raw_ruta_path:
+        sys.exit(1)
+    if args.individu:
+        merged_path = merge_ruta_individu(raw_ruta_path, args.individu,
+                                          args.output, args.tahun)
         if not merged_path:
-            return
-        preprocess(merged_path, tahun, col, output, provinsi, chunk)
+            sys.exit(1)
+    else:
+        merged_path = raw_ruta_path
+    preprocess(merged_path, args.tahun, col, args.output,
+               args.provinsi, args.chunk)
+
+
+def cmd_ruta(args):
+    custom_map = parse_custom_map(args.map) if args.map else None
+    col = get_column_mapping(args.tahun, custom_map)
+    if col is None:
+        sys.exit(1)
+    _banner(args.tahun)
+
+    merged_path = merge_ruta_individu(args.ruta, args.individu,
+                                      args.output, args.tahun)
+    if not merged_path:
+        sys.exit(1)
+    preprocess(merged_path, args.tahun, col, args.output,
+               args.provinsi, args.chunk)
+
+
+def _add_common(p):
+    p.add_argument('--output', type=str, default='.',
+                   help='Folder output (default: .)')
+    p.add_argument('--provinsi', type=int, nargs='*', default=[],
+                   help='Filter kode provinsi.')
+    p.add_argument('--chunk', type=int, default=100000,
+                   help='Chunk size untuk hemat RAM (default: 100000)')
+    p.add_argument('--map', type=str, nargs='*', default=[],
+                   metavar='KEY=VALUE',
+                   help='Custom mapping kolom untuk tahun baru.')
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Interface terpusat preprocessing Susenas PMT.\nUser tinggal masukkan data + tahun, script otomatis jalankan pipeline yang sesuai.',
-        formatter_class=argparse.RawTextHelpFormatter
+        description='Interface terpusat preprocessing Susenas PMT (3 skenario)',
+        formatter_class=argparse.RawTextHelpFormatter,
     )
+    sub = parser.add_subparsers(dest='cmd', required=True,
+                                metavar='{merged,kor,ruta}')
 
-    parser.add_argument('--output', type=str, default='.', help='Folder output (default: direktori saat ini)')
-    parser.add_argument('--chunk', type=int, default=100000, help='Chunk size untuk hemat RAM (default: 100000)')
-    parser.add_argument('--map', type=str, nargs='*', default=[], metavar='KEY=VALUE',
-                        help='Custom mapping kolom untuk tahun baru. Contoh: --map c_prov=PROP c_kab=KAB')
+    pm = sub.add_parser('merged', help='Skenario 3: data sudah merged.')
+    pm.add_argument('--tahun', type=int, nargs='+', required=True,
+                    help='Boleh banyak tahun. Contoh: --tahun 2023 2024')
+    pm.add_argument('--file', type=str, nargs='+', required=True,
+                    help='File per tahun (urutan harus sesuai --tahun).')
+    _add_common(pm)
+    pm.set_defaults(func=cmd_merged)
 
-    sub = parser.add_subparsers(dest='command', required=True)
+    pk = sub.add_parser('kor', help='Skenario 1: KOR + KP terpisah '
+                                    '(opsional + individu).')
+    pk.add_argument('--tahun', type=int, required=True)
+    pk.add_argument('--kor', type=str, required=True, help='File KOR.')
+    pk.add_argument('--kp', type=str, required=True, help='File KP.')
+    pk.add_argument('--individu', type=str, default=None,
+                    help='File individu (opsional).')
+    _add_common(pk)
+    pk.set_defaults(func=cmd_kor)
 
-    # Skenario 1: KOR + KP terpisah
-    p1 = sub.add_parser('kor', help='Skenario 1: KOR + KP terpisah -> join -> merge -> prepo')
-    p1.add_argument('--tahun', type=int, required=True, nargs='+', help='Tahun data. Bisa lebih dari satu.')
-    p1.add_argument('--kor', type=str, required=True, nargs='+', help='Path file KOR per tahun (urutan sesuai --tahun)')
-    p1.add_argument('--kp', type=str, required=True, nargs='+', help='Path file KP per tahun (urutan sesuai --tahun)')
-    p1.add_argument('--individu', type=str, nargs='+', default=[], help='Path file individu per tahun (opsional, urutan sesuai --tahun)')
-
-    # Skenario 2: ruta + individu terpisah
-    p2 = sub.add_parser('ruta', help='Skenario 2: ruta + individu terpisah -> merge -> prepo')
-    p2.add_argument('--tahun', type=int, required=True, nargs='+', help='Tahun data. Bisa lebih dari satu.')
-    p2.add_argument('--ruta', type=str, required=True, nargs='+', help='Path file ruta per tahun (urutan sesuai --tahun)')
-    p2.add_argument('--individu', type=str, required=True, nargs='+', help='Path file individu per tahun (urutan sesuai --tahun)')
-
-    # Skenario 3: sudah merged
-    p3 = sub.add_parser('merged', help='Skenario 3: data sudah merged -> langsung prepo')
-    p3.add_argument('--tahun', type=int, required=True, nargs='+', help='Tahun data. Bisa lebih dari satu.')
-    p3.add_argument('--file', type=str, required=True, nargs='+', help='Path file merged per tahun (urutan sesuai --tahun)')
+    pr = sub.add_parser('ruta', help='Skenario 2: ruta + individu terpisah.')
+    pr.add_argument('--tahun', type=int, required=True)
+    pr.add_argument('--ruta', type=str, required=True)
+    pr.add_argument('--individu', type=str, required=True)
+    _add_common(pr)
+    pr.set_defaults(func=cmd_ruta)
 
     args = parser.parse_args()
-
     os.makedirs(args.output, exist_ok=True)
-    custom_map = parse_custom_map(args.map) if args.map else None
-
-    if args.command == 'merged':
-        if len(args.tahun) != len(args.file):
-            print("[ERROR] Jumlah --tahun dan --file harus sama.")
-            sys.exit(1)
-        for tahun, file_path in zip(args.tahun, args.file):
-            run_pipeline(
-                tahun=tahun,
-                mode='merged',
-                files={'merged': file_path},
-                output=args.output,
-                provinsi=[],
-                chunk=args.chunk,
-                custom_map=custom_map
-            )
-
-    elif args.command == 'kor':
-        if len(args.tahun) != len(args.kor) or len(args.tahun) != len(args.kp):
-            print("[ERROR] Jumlah --tahun, --kor, dan --kp harus sama.")
-            sys.exit(1)
-        individu_list = args.individu if args.individu else [None] * len(args.tahun)
-        if args.individu and len(args.individu) != len(args.tahun):
-            print("[ERROR] Jumlah --individu harus sama dengan --tahun jika diisi.")
-            sys.exit(1)
-        for i, tahun in enumerate(args.tahun):
-            run_pipeline(
-                tahun=tahun,
-                mode='kor',
-                files={
-                    'kor': args.kor[i],
-                    'kp': args.kp[i],
-                    'individu': individu_list[i]
-                },
-                output=args.output,
-                provinsi=[],
-                chunk=args.chunk,
-                custom_map=custom_map
-            )
-
-    elif args.command == 'ruta':
-        if len(args.tahun) != len(args.ruta) or len(args.tahun) != len(args.individu):
-            print("[ERROR] Jumlah --tahun, --ruta, dan --individu harus sama.")
-            sys.exit(1)
-        for i, tahun in enumerate(args.tahun):
-            run_pipeline(
-                tahun=tahun,
-                mode='ruta',
-                files={
-                    'ruta': args.ruta[i],
-                    'individu': args.individu[i]
-                },
-                output=args.output,
-                provinsi=[],
-                chunk=args.chunk,
-                custom_map=custom_map
-            )
-
+    args.func(args)
     print("\nSemua proses selesai.")
 
 
