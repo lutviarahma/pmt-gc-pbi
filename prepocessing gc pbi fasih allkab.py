@@ -266,9 +266,6 @@ def stage_3_feature_engineering():
     print(f"\n[DONE] File Berhasil Dibuat: {OUTPUT_FINAL}")
     print(f"Total Baris (Rumah Tangga): {len(final)}")
 
-# =================================================================
-# MAIN EXECUTION
-# =================================================================
 if __name__ == "__main__":
     try:
         temp_file = stage_1_cleaning()
