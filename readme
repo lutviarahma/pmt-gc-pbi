@@ -152,7 +152,7 @@ dtsen_clean_lite_2026.csv
 Jalankan langsung:
 
 ```bash
-python prepo_dtsen.py
+python prepocessing gc pbi fasih.py
 ```
 
 ---
