@@ -9,7 +9,7 @@ Pipeline preprocessing end-to-end untuk data **DTSEN GC PBI FASIH 2026**, mencak
 
 ## File
 
-* `prepo_dtsen.py` → pipeline utama (Stage 1–3)
+* `prepocessing gc pbi fasih.py` → pipeline utama (Stage 1–3)
 * Output:
 
   * `dtsen_clean_lite_2026.csv`
