@@ -8,7 +8,7 @@ PATH_AK = "ak_nested._wo_nik.csv"
 PATH_ROOT = "root_table._wo_nik.csv"
 
 CHUNK_SIZE = 100000
-OUTPUT_STAGE_1 = "2026_dtsen_merged_imputed_gianyar.csv"
+OUTPUT_STAGE_1 = "2026_dtsen_merged_imputed.csv"
 OUTPUT_FINAL = "dtsen_clean_lite_2026.csv"
 
 # Mapping for Feature Engineering
