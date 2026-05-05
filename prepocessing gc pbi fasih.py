@@ -3,9 +3,6 @@ import numpy as np
 import os
 from functools import reduce
 
-# =================================================================
-# CONFIGURATION & SETTINGS
-# =================================================================
 PATH_METERAN = "meteran_listrik_202604080756.csv"
 PATH_AK = "ak_nested_202604071642_wo_nik.csv"
 PATH_ROOT = "root_table_202604071643_wo_nik.csv"
@@ -30,9 +27,6 @@ CATEGORIES_MAP = {
     'toilet_type': ['h_toilet1', 'h_toilet2', 'h_toilet3', 'h_toilet4', 'h_toilet5', 'h_toilet6']
 }
 
-# =================================================================
-# HELPER FUNCTIONS
-# =================================================================
 def get_wide(df, col, categories=None):
     if col not in df.columns or df.empty:
         return pd.DataFrame(columns=['ASSIGNMENT_ID'])
@@ -269,9 +263,6 @@ def stage_3_feature_engineering():
     print(f"\n[DONE] File Berhasil Dibuat: {OUTPUT_FINAL}")
     print(f"Total Baris (Rumah Tangga): {len(final)}")
 
-# =================================================================
-# MAIN EXECUTION
-# =================================================================
 if __name__ == "__main__":
     try:
         temp_file = stage_1_cleaning()
