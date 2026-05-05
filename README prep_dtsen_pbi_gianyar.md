@@ -9,7 +9,7 @@ Pipeline preprocessing end-to-end untuk data **DTSEN GC PBI FASIH 2026**, mencak
 
 ## File
 
-* `prepocessing gc pbi fasih gianyar.py` → pipeline utama (Stage 1–3)
+* `prep_dtsen_pbi_gianyar.py` → pipeline utama (Stage 1–3)
 * Output:
 
   * `dtsen_clean_lite_2026_gianyar.csv`
@@ -153,7 +153,7 @@ dtsen_clean_lite_2026_gianyar.csv
 ## Cara Menjalankan
 
 ```bash
-python prepocessing gc pbi fasih gianyar.py
+python prep_dtsen_pbi_gianyar.py
 ```
 
 ---
