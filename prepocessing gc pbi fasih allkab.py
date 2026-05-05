@@ -3,9 +3,6 @@ import numpy as np
 import os
 from functools import reduce
 
-# =================================================================
-# CONFIGURATION & SETTINGS
-# =================================================================
 PATH_METERAN = "meteran_listrik.csv"
 PATH_AK = "ak_nested._wo_nik.csv"
 PATH_ROOT = "root_table._wo_nik.csv"
@@ -30,9 +27,6 @@ CATEGORIES_MAP = {
     'toilet_type': ['h_toilet1', 'h_toilet2', 'h_toilet3', 'h_toilet4', 'h_toilet5', 'h_toilet6']
 }
 
-# =================================================================
-# HELPER FUNCTIONS
-# =================================================================
 def get_wide(df, col, categories=None):
     if col not in df.columns or df.empty:
         return pd.DataFrame(columns=['ASSIGNMENT_ID'])
@@ -227,15 +221,11 @@ def stage_3_feature_engineering():
             rt[col_name] = (pd.to_numeric(rt[key], errors='coerce').fillna(0) > 0).astype(int)
             asset_cols.append(col_name)
     
-    if real_m.get('smart') or real_m.get('internet'):
-
-        rt['h_asset_internet'] = np.where(
-            (
-                (rt[real_m['smart']].fillna(0) if real_m.get('smart') else 0) +
-                (rt[real_m['internet']].fillna(0) if real_m.get('internet') else 0)
-            ) > 10000,
-            1, 0
-        )
+    if real_m['smart'] or real_m['internet']:
+        pulsa = rt[real_m['smart']].fillna(0) if real_m['smart'] else 0
+        internet = rt[real_m['internet']].fillna(0) if real_m['internet'] else 0
+    
+        rt['h_asset_internet'] = np.where((pulsa + internet) > 10000, 1, 0)
         asset_cols.append('h_asset_internet')
 
     # Housing Categories Logic
