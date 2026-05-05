@@ -71,7 +71,9 @@ def stage_1_cleaning():
         daya_numeric = pd.to_numeric(df_meteran['daya_terpasang_value'], errors='coerce')
         meteran_agg = df_meteran.assign(daya=daya_numeric).groupby('assignment_id').agg(
             jumlah_meteran=('daya', 'count'),
-            daya_maks=('daya', 'max')
+            daya_total=('daya', 'sum'),
+            daya_maks=('daya', 'max'),
+            daya_terpasang_pertama=('daya_terpasang_value', 'first')
         ).reset_index()
         n_multi = (meteran_agg['jumlah_meteran'] > 1).sum()
         print(f"[INFO] Ruta dengan > 1 meteran: {n_multi} ({n_multi/len(meteran_agg)*100:.1f}%)")
@@ -216,7 +218,7 @@ def stage_3_feature_engineering():
 
     rt['house'] = np.select([s_num('house')==1, s_num('house').isin([3,5]), s_num('house')==2, s_num('house')==4], ['h_house1','h_house2','h_house3','h_house4'], default=None)
     rt['floor'] = np.select([s_num('floor')<=3, s_num('floor')==4, s_num('floor').isin([5,6]), s_num('floor')>=7], ['h_floor1','h_floor2','h_floor3','h_floor4'], default=None)
-    rt['wall'] = np.select([s_num('wall')==1, s_num('wall').isin([2,3]), s_num('wall').isin([4,6]), s_num('wall')==7], ['h_wall1','h_wall2','h_wall3','h_wall4'], default=None)
+    rt['wall'] = np.select([s_num('wall')==1, s_num('wall').isin([2,3]), s_num('wall').isin([4,5,6]), s_num('wall')==7], ['h_wall1','h_wall2','h_wall3','h_wall4'], default=None)
     rt['roof'] = np.select([s_num('roof')==1, s_num('roof')==2, s_num('roof').isin([3,4,5,6]), s_num('roof').isin([7,8])], ['h_roof1','h_roof2','h_roof3','h_roof4'], default=None)
     rt['dwater'] = np.select([s_num('water')==1, s_num('water').isin([2,3]), s_num('water').isin([4,5,7]), s_num('water').isin([6,8]), s_num('water')>=9], ['h_dwater1','h_dwater2','h_dwater3','h_dwater4','h_dwater5'], default=None)
     rt['epower'] = np.select([s_num('elec')==1, s_num('elec')==2, s_num('elec').isin([3,4,5])], ['h_epower1','h_epower2','h_epower3'], default=None)
@@ -243,6 +245,7 @@ def stage_3_feature_engineering():
     final['kode_kab'] = final[real_m['kab']].astype(int)
 
     final.to_csv(OUTPUT_FINAL, index=False)
+    
     print("\n" + "="*60)
     print("REKONSILIASI GLOBAL")
     print("="*60)
