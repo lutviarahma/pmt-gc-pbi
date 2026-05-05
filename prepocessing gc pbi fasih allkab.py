@@ -51,7 +51,7 @@ def stage_1_cleaning():
     df_ak = pd.read_csv(PATH_AK, sep=None, engine='python', dtype=str)
     df_root_raw = pd.read_csv(PATH_ROOT, sep=None, engine='python', dtype=str)
 
-    # PERBAIKAN DI SINI: Gunakan .str accessor untuk strip dan lower pada Index
+    # .str accessor untuk strip dan lower pada Index
     for df in [df_meteran, df_ak, df_root_raw]:
         df.columns = df.columns.str.strip().str.lower()
         if 'assignment_id' in df.columns:
