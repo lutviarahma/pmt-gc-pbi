@@ -3,7 +3,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
-FILE_INPUT  = "dtsen_clean_lite_2026_update.csv"
+FILE_INPUT  = "dtsen_clean_lite_2026.csv"
 PATH_MODEL  = "models_final_full_mapbaru/"
 PATH_OUTPUT = "hasil_prediksi_mapbaru/"
 FINAL_OUTPUT = f"{PATH_OUTPUT}predicted_kabupaten_gianyar_mapbaru.csv"
