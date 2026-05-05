@@ -7,7 +7,6 @@ PATH_METERAN = "meteran_listrik_202604080756.csv"
 PATH_AK = "ak_nested_202604071642_wo_nik.csv"
 PATH_ROOT = "root_table_202604071643_wo_nik.csv"
 
-CHUNK_SIZE = 100000
 OUTPUT_STAGE_1 = "2026_dtsen_merged_imputed_gianyar.csv"
 OUTPUT_FINAL = "dtsen_clean_lite_2026_gianyar.csv"
 
@@ -45,13 +44,11 @@ def get_wide(df, col, categories=None):
 # =================================================================
 def stage_1_cleaning():
     print("\n[STEP 1] Memulai Integrasi Root, AK, dan Meteran...")
-    
-    # Membaca data dengan sep=None agar otomatis mendeteksi koma atau titik koma
+
     df_meteran = pd.read_csv(PATH_METERAN, sep=None, engine='python', dtype=str)
     df_ak = pd.read_csv(PATH_AK, sep=None, engine='python', dtype=str)
     df_root_raw = pd.read_csv(PATH_ROOT, sep=None, engine='python', dtype=str)
 
-    # .str accessor untuk strip dan lower pada Index
     for df in [df_meteran, df_ak, df_root_raw]:
         df.columns = df.columns.str.strip().str.lower()
         if 'assignment_id' in df.columns:
@@ -81,55 +78,50 @@ def stage_1_cleaning():
     # Merging
     ruta_lengkap = df_root.merge(meteran_agg, on='assignment_id', how='left')
     df_merged = ruta_lengkap.merge(df_ak, on='assignment_id', how='inner')
-    
-    df_merged.to_csv("temp_merged.csv", index=False)
-    print(f"[INFO] Stage 1 selesai. Data sementara disimpan.")
-    return "temp_merged.csv"
+
+    # Rekonsiliasi: cek ID yang hilang setelah inner merge
+    id_root = set(df_root['assignment_id'])
+    id_merged = set(df_merged['assignment_id'])
+    lost_ids = id_root - id_merged
+    print(f"[REKON] Assignment ID di Root tapi tidak ada di AK (hilang setelah inner merge): {len(lost_ids)}")
+    if lost_ids:
+        pd.Series(list(lost_ids)).to_csv("lost_ids_stage1_gianyar.csv", index=False, header=['assignment_id'])
+        print(f"[REKON] Lost IDs disimpan ke lost_ids_stage1_gianyar.csv")
+
+    df_merged.to_csv(OUTPUT_STAGE_1, index=False)
+    print(f"[INFO] Stage 1 selesai. Total baris merged: {len(df_merged)}")
+    return OUTPUT_STAGE_1
 
 # =================================================================
-# STAGE 2: CHUNK PROCESSING, IMPUTATION & TAIL BUFFER
+# STAGE 2: IMPUTATION (NO CHUNKING)
 # =================================================================
-def stage_2_imputation(temp_file):
-    print("\n[STEP 2] Memulai Imputasi & Handling Chunk...")
-    reader = pd.read_csv(temp_file, chunksize=CHUNK_SIZE, dtype=str)
-    
-    all_chunks = []
-    tail_buffer = pd.DataFrame()
+def stage_2_imputation(merged_file):
+    print("\n[STEP 2] Memulai Imputasi...")
 
-    for chunk in reader:
-        chunk.columns = chunk.columns.str.lower().str.strip()
-        if not tail_buffer.empty:
-            chunk = pd.concat([tail_buffer, chunk], ignore_index=True)
+    df = pd.read_csv(merged_file, dtype=str)
+    df.columns = df.columns.str.lower().str.strip()
 
-        # Konversi Numerik
-        chunk['ak_umur'] = pd.to_numeric(chunk['ak_umur'], errors='coerce')
-        if 'ak_sekolah_value' in chunk.columns:
-            chunk['ak_sekolah_value'] = pd.to_numeric(chunk['ak_sekolah_value'], errors='coerce')
+    n_before = len(df)
 
-            # Imputasi Balita (Umur 0-4 dianggap belum sekolah)
-            mask_balita = chunk['ak_umur'].between(0, 4, inclusive='both')
-            chunk.loc[mask_balita, 'ak_sekolah_value'] = 0
+    # Konversi Numerik
+    df['ak_umur'] = pd.to_numeric(df['ak_umur'], errors='coerce')
+    if 'ak_sekolah_value' in df.columns:
+        df['ak_sekolah_value'] = pd.to_numeric(df['ak_sekolah_value'], errors='coerce')
 
-            # Drop invalid age/school (9 biasanya kode "tidak tahu" atau error)
-            chunk = chunk[~(chunk['ak_umur'].isna()) & ~(chunk['ak_sekolah_value'].isna()) & (chunk['ak_sekolah_value'] != 9)]
+        # Imputasi Balita (Umur 0-4 dianggap belum sekolah)
+        mask_balita = df['ak_umur'].between(0, 4, inclusive='both')
+        df.loc[mask_balita, 'ak_sekolah_value'] = 0
 
-        # Tail Buffer Logic (agar 1 assignment_id tidak terpisah chunk)
-        last_id = chunk['assignment_id'].iloc[-1]
-        mask_tail = chunk['assignment_id'] == last_id
-        tail_buffer = chunk[mask_tail].copy()
-        chunk = chunk[~mask_tail]
+        # Drop invalid age/school (9 biasanya kode "tidak tahu" atau error)
+        df = df[
+            df['ak_umur'].notna() &
+            df['ak_sekolah_value'].notna() &
+            (df['ak_sekolah_value'] != 9)
+        ]
 
-        if not chunk.empty:
-            all_chunks.append(chunk)
+    print(f"[INFO] Baris di-drop saat imputasi: {n_before - len(df)} | Sisa: {len(df)}")
 
-    if not tail_buffer.empty:
-        all_chunks.append(tail_buffer)
-
-    df_final_stage2 = pd.concat(all_chunks, ignore_index=True)
-    df_final_stage2.to_csv(OUTPUT_STAGE_1, index=False)
-    
-    if os.path.exists(temp_file):
-        os.remove(temp_file)
+    df.to_csv(OUTPUT_STAGE_1, index=False)
     print(f"[INFO] Stage 2 selesai: {OUTPUT_STAGE_1}")
 
 # =================================================================
@@ -137,8 +129,7 @@ def stage_2_imputation(temp_file):
 # =================================================================
 def stage_3_feature_engineering():
     print("\n[STEP 3] Memulai Feature Engineering & Aggregation...")
-    
-    # Mapping kolom (disesuaikan dengan lower case hasil cleaning)
+
     m = {
         'prov': 'level_1_full_code', 'kab': 'level_2_full_code',
         'sch': 'ak_sekolah_value', 'ijz': 'ak_ijazah_value',
@@ -154,11 +145,9 @@ def stage_3_feature_engineering():
     df = pd.read_csv(OUTPUT_STAGE_1, dtype=str)
     df.columns = df.columns.str.lower()
 
-    # Re-standardize ID name ke Uppercase untuk output final
     if 'assignment_id' in df.columns:
         df = df.rename(columns={'assignment_id': 'ASSIGNMENT_ID'})
-    
-    # Cari nama kolom asli yang mungkin punya suffix _x atau _y akibat merge
+
     def get_real_col(key):
         target = m[key]
         for c in df.columns:
@@ -166,7 +155,6 @@ def stage_3_feature_engineering():
                 return c
         return None
 
-    # Update mapping dengan nama kolom yang ditemukan di df
     real_m = {k: get_real_col(k) for k in m.keys()}
 
     # Numeric conversion
@@ -176,7 +164,7 @@ def stage_3_feature_engineering():
 
     # --- INDIVIDUAL LEVEL FEATURES ---
     if real_m['sch']:
-        df['school'] = np.select([df[real_m['sch']]==0, df[real_m['sch']]==1, df[real_m['sch']]==2], 
+        df['school'] = np.select([df[real_m['sch']]==0, df[real_m['sch']]==1, df[real_m['sch']]==2],
                                  ['h_neverschool', 'h_stillschool', 'h_notschool'], default=None)
     if real_m['ijz']:
         ijz = df[real_m['ijz']]
@@ -198,7 +186,7 @@ def stage_3_feature_engineering():
     for col_name, cats in [('ijazah', EDU_LIST), ('school', SCHOOL_LIST), ('marriage', None), ('gender', None), ('age_cat', None), ('work_status', SEC_LIST)]:
         if col_name in df.columns:
             indiv_dfs.append(get_wide(df, col_name, categories=cats))
-    
+
     hh_final = reduce(lambda l, r: pd.merge(l, r, on='ASSIGNMENT_ID', how='left'), indiv_dfs).fillna(0)
 
     # --- HOUSEHOLD LEVEL FEATURES (Assets & Housing) ---
@@ -206,8 +194,7 @@ def stage_3_feature_engineering():
     if real_m['luas']:
         rt['h_luaslantai'] = rt[real_m['luas']].fillna(0)
         rt['h_lnluaslantai'] = np.log1p(rt['h_luaslantai'].replace(0, np.nan)).fillna(0)
-    
-    # Assets (Cek keberadaan kolom dulu)
+
     asset_map = {'ac': 'ac', 'lemaries_kulkas': 'fridge', 'gas_5kg': 'lpg5kg', 'komputer_laptop': 'computer', 'emas_perhiasan': 'jewelry', 'sepeda_motor': 'motorcycle', 'mobil': 'car', 'jumlah_lahan_lain': 'land'}
     asset_cols = []
     for key, name in asset_map.items():
@@ -215,26 +202,24 @@ def stage_3_feature_engineering():
         if key in rt.columns:
             rt[col_name] = (pd.to_numeric(rt[key], errors='coerce').fillna(0) > 0).astype(int)
             asset_cols.append(col_name)
-    
+
     if real_m['smart']:
         rt['h_asset_internet'] = np.where(rt[real_m['smart']].fillna(0) > 10000, 1, 0)
         asset_cols.append('h_asset_internet')
 
-    # Housing Categories Logic
-    def s_num(col_key): 
+    def s_num(col_key):
         col = real_m[col_key]
         return rt[col].fillna(0) if col else pd.Series([0]*len(rt))
 
     rt['house'] = np.select([s_num('house')==1, s_num('house').isin([3,5]), s_num('house')==2, s_num('house')==4], ['h_house1','h_house2','h_house3','h_house4'], default=None)
     rt['floor'] = np.select([s_num('floor')<=3, s_num('floor')==4, s_num('floor').isin([5,6]), s_num('floor')>=7], ['h_floor1','h_floor2','h_floor3','h_floor4'], default=None)
-    rt['wall'] = np.select([s_num('wall')==1, s_num('wall').isin([2,3]), s_num('wall').isin([4,6]), s_num('wall')==7], ['h_wall1','h_wall2','h_wall3','h_wall4'], default=None)
+    rt['wall'] = np.select([s_num('wall')==1, s_num('wall').isin([2,3]), s_num('wall').isin([4,5,6]), s_num('wall')==7], ['h_wall1','h_wall2','h_wall3','h_wall4'], default=None)
     rt['roof'] = np.select([s_num('roof')==1, s_num('roof')==2, s_num('roof').isin([3,4,5,6]), s_num('roof').isin([7,8])], ['h_roof1','h_roof2','h_roof3','h_roof4'], default=None)
     rt['dwater'] = np.select([s_num('water')==1, s_num('water').isin([2,3]), s_num('water').isin([4,5,7]), s_num('water').isin([6,8]), s_num('water')>=9], ['h_dwater1','h_dwater2','h_dwater3','h_dwater4','h_dwater5'], default=None)
     rt['epower'] = np.select([s_num('elec')==1, s_num('elec')==2, s_num('elec').isin([3,4,5])], ['h_epower1','h_epower2','h_epower3'], default=None)
     rt['lighting'] = np.select([s_num('light')<=2, s_num('light')==3, s_num('light')==4], ['h_lighting1','h_lighting2','h_lighting3'], default=None)
     rt['toilet_type'] = s_num('toiletA').map({1:'h_toilet1', 2:'h_toilet2', 3:'h_toilet3', 4:'h_toilet4', 5:'h_toilet5'}).fillna('h_toilet6')
 
-    # Merge Indiv + RT
     id_cols = ['ASSIGNMENT_ID', real_m['prov'], real_m['kab'], 'h_luaslantai', 'h_lnluaslantai', 'house', 'floor', 'wall', 'roof', 'dwater', 'epower', 'lighting', 'toilet_type']
     final = pd.merge(hh_final, rt[id_cols + asset_cols], on='ASSIGNMENT_ID', how='left').fillna(0)
 
@@ -253,15 +238,45 @@ def stage_3_feature_engineering():
     final['h_nfamily'] = 1
     final['kode_prov'] = final[real_m['prov']].astype(int)
     final['kode_kab'] = final[real_m['kab']].astype(int)
-    
+
     final.to_csv(OUTPUT_FINAL, index=False)
+    
+    print("\n" + "="*60)
+    print("REKONSILIASI GLOBAL")
+    print("="*60)
+    print(f"Total Rumah Tangga (output final)  : {len(final)}")
+    print(f"Total Kolom                        : {len(final.columns)}")
+    print(f"Missing values di final            : {final.isnull().sum().sum()}")
+
+    # Cek one-hot konsistensi (tiap kategori harus sum = 1 per baris)
+    for cat, cols in CATEGORIES_MAP.items():
+        existing = [c for c in cols if c in final.columns]
+        if existing:
+            row_sum = final[existing].sum(axis=1)
+            n_zero = (row_sum == 0).sum()
+            n_multi = (row_sum > 1).sum()
+            if n_zero > 0 or n_multi > 0:
+                print(f"[WARN] {cat}: {n_zero} baris tanpa kategori, {n_multi} baris multi-kategori")
+            else:
+                print(f"[OK]   {cat}: semua baris terisi tepat 1 kategori")
+
+    # Distribusi asset
+    print("\n[INFO] % Kepemilikan Aset:")
+    for col in asset_cols:
+        if col in final.columns:
+            pct = final[col].mean() * 100
+            print(f"  {col}: {pct:.1f}%")
+
+    print("="*60)
     print(f"\n[DONE] File Berhasil Dibuat: {OUTPUT_FINAL}")
     print(f"Total Baris (Rumah Tangga): {len(final)}")
 
 if __name__ == "__main__":
     try:
-        temp_file = stage_1_cleaning()
-        stage_2_imputation(temp_file)
+        merged_file = stage_1_cleaning()
+        stage_2_imputation(merged_file)
         stage_3_feature_engineering()
     except Exception as e:
+        import traceback
         print(f"\n[ERROR] Terjadi kesalahan: {e}")
+        traceback.print_exc()
