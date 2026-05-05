@@ -12,7 +12,7 @@ Pipeline preprocessing end-to-end untuk data **DTSEN GC PBI FASIH 2026**, mencak
 * `prepocessing gc pbi fasih.py` → pipeline utama (Stage 1–3)
 * Output:
 
-  * `dtsen_clean_lite_2026.csv`
+  * `dtsen_clean_lite_2026_gianyar.csv`
 
 
 ---
@@ -145,7 +145,7 @@ Transformasi dari **level individu → rumah tangga**
 **Output akhir:**
 
 ```
-dtsen_clean_lite_2026.csv
+dtsen_clean_lite_2026_gianyar.csv
 ```
 
 ---
@@ -153,7 +153,7 @@ dtsen_clean_lite_2026.csv
 ## Cara Menjalankan
 
 ```bash
-python prepocessing gc pbi fasih.py
+python prepocessing gc pbi fasih gianyar.py
 ```
 
 ---
@@ -175,7 +175,7 @@ CHUNK_SIZE = 100000
 | File                                    | Deskripsi                 |
 | --------------------------------------- | ------------------------- |
 | `2026_dtsen_merged_imputed_gianyar.csv` | hasil cleaning + imputasi |
-| `dtsen_clean_lite_2026.csv`             | dataset final             |
+| `dtsen_clean_lite_2026_gianyar.csv`             | dataset final             |
 
 ---
 
