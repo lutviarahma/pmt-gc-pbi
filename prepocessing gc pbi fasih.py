@@ -178,22 +178,17 @@ def stage_3_feature_engineering():
     if real_m['sch']:
         df['school'] = np.select([df[real_m['sch']]==0, df[real_m['sch']]==1, df[real_m['sch']]==2], 
                                  ['h_neverschool', 'h_stillschool', 'h_notschool'], default=None)
-    
     if real_m['ijz']:
         ijz = df[real_m['ijz']]
         df['ijazah'] = np.select([ijz==1, ijz==2, ijz==3, ijz==4, ijz==5, ijz==6],
                                  ['h_ngrad_sd', 'h_ngrad_smp', 'h_ngrad_sma', 'h_ngrad_d', 'h_ngrad_s', 'h_ngrad_s2'], default='h_notgrad')
-
     if real_m['kawin']:
         df['marriage'] = df[real_m['kawin']].map({1:'h_notmarried', 2:'h_married', 3:'h_divorced', 4:'h_widowed'})
-    
     if real_m['sex']:
         df['gender'] = df[real_m['sex']].map({1:'h_nmale', 2:'h_nfemale'})
-    
     if real_m['age']:
         age = df[real_m['age']]
         df['age_cat'] = np.select([age<=4, age<=19, age<=64], ['h_nage04', 'h_nage519', 'h_nage2064'], default='h_nage65up')
-    
     if real_m['stat']:
         df['work_status'] = df[real_m['stat']].map({1:'h_stat1', 2:'h_stat2', 3:'h_stat2', 4:'h_stat3', 5:'h_stat4', 6:'h_stat5'})
 
