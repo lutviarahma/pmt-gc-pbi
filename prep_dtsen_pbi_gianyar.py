@@ -243,10 +243,6 @@ def stage_3_feature_engineering():
     final['kode_kab'] = final[real_m['kab']].astype(int)
 
     final.to_csv(OUTPUT_FINAL, index=False)
-
-    # =================================================================
-    # REKONSILIASI GLOBAL
-    # =================================================================
     print("\n" + "="*60)
     print("REKONSILIASI GLOBAL")
     print("="*60)
