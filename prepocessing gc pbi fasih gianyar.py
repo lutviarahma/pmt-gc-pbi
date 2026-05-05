@@ -9,7 +9,7 @@ PATH_ROOT = "root_table_202604071643_wo_nik.csv"
 
 CHUNK_SIZE = 100000
 OUTPUT_STAGE_1 = "2026_dtsen_merged_imputed_gianyar.csv"
-OUTPUT_FINAL = "dtsen_clean_lite_2026.csv"
+OUTPUT_FINAL = "dtsen_clean_lite_2026_gianyar.csv"
 
 # Mapping for Feature Engineering
 EDU_LIST = ['h_ngrad_sd', 'h_ngrad_smp', 'h_ngrad_sma', 'h_ngrad_d', 'h_ngrad_s', 'h_ngrad_s2', 'h_notgrad']
