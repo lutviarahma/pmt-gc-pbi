@@ -311,9 +311,9 @@ def process_block(chunk, col, year):
     if c['c_age'] in chunk.columns:
         age = chunk[c['c_age']]
         chunk['age_cat'] = np.select(
-            [age <= 4, age <= 19, age <= 64],
-            ['h_nage04', 'h_nage519', 'h_nage2064'],
-            default='h_nage65up',
+            [age <= 4, age <= 19, age <= 64, age > 64],
+            ['h_nage04', 'h_nage519', 'h_nage2064', 'h_nage65up],
+            default=None,
         )
     if c['c_stat'] in chunk.columns:
         chunk['work_status'] = pd.to_numeric(chunk[c['c_stat']], errors='coerce').map(
