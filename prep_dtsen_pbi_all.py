@@ -189,7 +189,7 @@ def stage_3_feature_engineering():
         df['gender'] = df[real_m['sex']].map({1:'h_nmale', 2:'h_nfemale'})
     if real_m['age']:
         age = df[real_m['age']]
-        df['age_cat'] = np.select([age<=4, age<=19, age<=64], ['h_nage04', 'h_nage519', 'h_nage2064'], default='h_nage65up')
+        df['age_cat'] = np.select([age<=4, age<=19, age<=64, age>64], ['h_nage04', 'h_nage519', 'h_nage2064', 'h_nage65up'], default=None)
     if real_m['stat']:
         df['work_status'] = df[real_m['stat']].map({1:'h_stat1', 2:'h_stat2', 3:'h_stat2', 4:'h_stat3', 5:'h_stat4', 6:'h_stat5'})
 
